@@ -1,67 +1,58 @@
-# 💳 UmaBankingSystem
+# UMA Banking System (Projeto Em C)
 
-<img src="https://cdn-icons-png.flaticon.com/512/1995/1995475.png" alt="Bank Icon" width="120"/>
-
-> Projeto individual em C para gestão bancária, desenvolvido no âmbito da disciplina de Programação.
+Sistema bancário **offline** de consola, pensado para aprendizagem de C puro.
 
 ---
 
-## 📌 Descrição
+## 📑 Funcionalidades
 
-O **UmaBankingSystem** é um sistema bancário simples feito em **linguagem C**, que simula operações bancárias comuns realizadas por clientes, como abrir conta, depósitos, transferências e pagamentos de serviços.
-
-> 🎓 Universidade Metodista de Angola – Engenharia Informática  
-> 📘 Projeto P2 – Avaliação Individual
-
----
-
-## ⚙️ Funcionalidades Implementadas
-
-| Nº | Funcionalidade            | Descrição                                       |
-|----|---------------------------|--------------------------------------------------|
-| 1️⃣ | **Abertura de conta**     | Regista um novo cliente com IBAN automático      |
-| 2️⃣ | **Depósito**              | Permite adicionar saldo a uma conta              |
-| 3️⃣ | **Levantamento**          | Retira saldo de uma conta se houver fundos       |
-| 4️⃣ | **Consulta**              | Mostra os dados e o saldo de uma conta           |
-| 5️⃣ | **Transferência**         | Envia dinheiro de uma conta para outra           |
-| 6️⃣ | **Pagamento de serviços** | Paga contas como luz, água ou internet           |
+| # | Função                              | Descrição curta                                                                           |
+|:-:|-------------------------------------|-------------------------------------------------------------------------------------------|
+| 1 | **Criar conta**                     | Nome único, número sequencial (1001…), IBAN gerado, saldo 0                                |
+| 2 | **Depositar**                       | Aumenta saldo da conta escolhida                                                          |
+| 3 | **Levantar**                        | Diminui saldo se houver saldo suficiente                                                  |
+| 4 | **Consultar saldo + IBAN**          | Mostra titular, número, IBAN e saldo atual                                                |
+| 5 | **Transferir dinheiro**             | Conta → Conta (interna) ou Conta → Contato (externo)                                      |
+| 6 | **Pagar serviço**                   | Netflix, ENDE Energia, Internet Fixa 100 Mbps (planos semanal/mensal conforme tabela)     |
+| 7 | **Ver contatos**                    | Lista 10 contatos pré-cadastrados (amigos/familiares)                                     |
+| 8 | **Sair**                            | Encerra o programa preservando os ficheiros `.dat`                                        |
 
 ---
 
-## 🧾 Atributos da Conta
+## 🗂️ Arquivos gerados
 
-Cada conta possui os seguintes dados:
-
-- 🔢 Número de Conta *(gerado automaticamente)*
-- 👤 Nome do Cliente
-- 🪪 Número do Bilhete
-- 🌍 Nacionalidade
-- 📅 Data de Nascimento
-- 💰 Saldo
-- 🏦 IBAN *(gerado com base no número de conta)*
+| Ficheiro        | Conteúdo                                      |
+|-----------------|-----------------------------------------------|
+| `banco.c`       | Código-fonte completo                         |
+| `contas.dat`    | Base de dados binária das contas internas     |
+| `contatos.dat`  | Base de dados binária dos 10 contatos         |
 
 ---
 
-## 🖼️ Capturas de Tela (Exemplo)
+## 💸 Serviços disponíveis
 
-| Abertura de Conta | Transferência |
-|-------------------|----------------|
-| ![Open Account](https://img.icons8.com/ios-filled/100/000000/add-user-group-man-man.png) | ![Transfer](https://img.icons8.com/ios-filled/100/000000/money-transfer.png) |
+| Serviço                | Plano semanal | Plano mensal | Observação           |
+|------------------------|--------------:|-------------:|----------------------|
+| Netflix                | 5 000 AKZ     | 10 000 AKZ   |                     |
+| ENDE Energia           | —             | 8 000 AKZ    | Tarifa única mensal  |
+| Internet Fixa 100 Mbps | 15 000 AKZ    | 30 000 AKZ   | Velocidade 100 Mbps  |
 
----
-
-## 🧠 Tecnologias Usadas
-
-- 🖥️ **C Language**
-- 🧮 Arrays e Structs
-- 📟 Terminal / Console
-- 🔁 Estruturas de repetição e controle
-- 📦 (opcional) Salvamento em `.txt`
+> Valores deduzidos diretamente do saldo da conta.
 
 ---
 
-## 🏁 Como Executar
+## 🧩 Estruturas de dados
 
-1. 📥 Clone o repositório:
-   ```bash
-   git clone https://github.com/seu-usuario/UmaBankingSystem.git
+```c
+typedef struct {
+    int   numero;     // 1001, 1002…
+    char  nome[50];   // único
+    char  iban[35];   // AOxx00010001##########
+    float saldo;
+} Conta;
+
+typedef struct {
+    int  numero;      // 4 dígitos aleatórios (2000–9999)
+    char nome[50];    // amigo/familiar
+    char iban[35];
+} Contato;
