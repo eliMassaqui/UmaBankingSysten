@@ -1,171 +1,268 @@
+/*  UMA BANKING SYSTEM
+    --------------------------------------------------------
+    • Contas internas (nomes unicos) com IBAN gerado
+    • Persistencia em arquivo (contas.dat / contatos.dat)
+    • 10 contatos pessoais para transferencia
+    • 3 servicos fixos com planos semanal / mensal:
+        - Netflix ............... 5 000 AKZ (sem) | 10 000 AKZ (men)
+        - ENDE Energia ..........            8 000 AKZ (men)
+        - Internet Fixa 100 Mbps . 15 000 AKZ (sem) | 30 000 AKZ (men)
+    --------------------------------------------------------
+    Compilar: gcc banco.c -o banco
+*/
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
 
-#define MAX_CLIENTES 100
+/* ----------------- constantes ----------------- */
+#define MAX_CONTAS   100
+#define N_CONTATOS   10
+#define N_SERVICOS    3
+#define ARQ_CONTAS   "contas.dat"
+#define ARQ_CONTATOS "contatos.dat"
 
+/* ----------------- estruturas ----------------- */
 typedef struct {
-    int numeroConta;
-    char nome[100];
-    char bilhete[20];
-    char nacionalidade[50];
-    char dataNascimento[15];
+    int   numero;          /* ex. 1001 */
+    char  nome[50];        /* nome unico */
+    char  iban[35];        /* IBAN AO..  */
     float saldo;
-    char iban[30];
 } Conta;
 
-Conta contas[MAX_CLIENTES];
-int totalContas = 0;
+typedef struct {
+    int  numero;           /* 4 digitos  */
+    char nome[50];
+    char iban[35];
+} Contato;
 
-// Gerador simples de número de conta e IBAN
-int gerarNumeroConta() {
-    return 1000 + totalContas;
+/* ----------------- globais ----------------- */
+Conta   contas[MAX_CONTAS];
+int     totalContas   = 0;
+int     proximoNumero = 1001;
+
+Contato contatos[N_CONTATOS];
+
+/* ----------- servicos, planos e precos ----------- */
+const char *SERV_NOME[N_SERVICOS]      = {"Netflix", "ENDE Energia", "Internet Fixa 100Mbps"};
+const int   SERV_PRECO_SEM[N_SERVICOS] = {  5000,       -1,             15000 };
+const int   SERV_PRECO_MES[N_SERVICOS] = { 10000,        8000,          30000 };
+
+/* ================================================= */
+/*  IBAN simplificado: AO + chk + banco 0001 + conta  */
+void gerarIBAN(int num, char *out)
+{
+    char bban[19]; sprintf(bban, "00010001%010d", num);
+    char tmp[64];  sprintf(tmp,  "%s102400", bban);   /* AO -> 10 24 */
+    int mod = 0;
+    for (int i = 0; tmp[i]; ++i)
+        mod = (mod * 10 + (tmp[i] - '0')) % 97;
+    int chk = 98 - mod;
+    sprintf(out, "AO%02d%s", chk, bban);
 }
 
-void gerarIBAN(int numeroConta, char* iban) {
-    sprintf(iban, "AO06BANK%06d", numeroConta);
+/* ----------------- persistencia contas ----------------- */
+void salvarContas(void){
+    FILE *fp = fopen(ARQ_CONTAS, "wb");
+    if(!fp){ puts("Erro ao salvar contas."); return; }
+    fwrite(&totalContas, sizeof(int), 1, fp);
+    fwrite(contas, sizeof(Conta), totalContas, fp);
+    fclose(fp);
+}
+void carregarContas(void){
+    FILE *fp = fopen(ARQ_CONTAS, "rb");
+    if(!fp) return;
+    fread(&totalContas, sizeof(int), 1, fp);
+    fread(contas, sizeof(Conta), totalContas, fp);
+    fclose(fp);
+    if(totalContas) proximoNumero = contas[totalContas-1].numero + 1;
 }
 
-// Função 1: Abrir conta
-void abrirConta() {
-    Conta nova;
-    nova.numeroConta = gerarNumeroConta();
-    printf("Nome completo: ");
-    getchar(); fgets(nova.nome, 100, stdin);
-    printf("Número do bilhete: ");
-    fgets(nova.bilhete, 20, stdin);
-    printf("Nacionalidade: ");
-    fgets(nova.nacionalidade, 50, stdin);
-    printf("Data de nascimento: ");
-    fgets(nova.dataNascimento, 15, stdin);
-    nova.saldo = 0.0;
-    gerarIBAN(nova.numeroConta, nova.iban);
-
-    contas[totalContas++] = nova;
-    printf("Conta criada com sucesso! Nº: %d | IBAN: %s\n", nova.numeroConta, nova.iban);
-}
-
-// Função 2: Depositar
-void depositar() {
-    int numero;
-    float valor;
-    printf("Número da conta: ");
-    scanf("%d", &numero);
-    printf("Valor do depósito: ");
-    scanf("%f", &valor);
-    for (int i = 0; i < totalContas; i++) {
-        if (contas[i].numeroConta == numero) {
-            contas[i].saldo += valor;
-            printf("Depósito feito. Saldo atual: %.2f\n", contas[i].saldo);
-            return;
-        }
-    }
-    printf("Conta não encontrada.\n");
-}
-
-// Função 3: Levantar
-void levantar() {
-    int numero;
-    float valor;
-    printf("Número da conta: ");
-    scanf("%d", &numero);
-    printf("Valor do levantamento: ");
-    scanf("%f", &valor);
-    for (int i = 0; i < totalContas; i++) {
-        if (contas[i].numeroConta == numero) {
-            if (contas[i].saldo >= valor) {
-                contas[i].saldo -= valor;
-                printf("Levantamento feito. Saldo atual: %.2f\n", contas[i].saldo);
-            } else {
-                printf("Saldo insuficiente.\n");
-            }
-            return;
-        }
-    }
-    printf("Conta não encontrada.\n");
-}
-
-// Função 4: Consultar
-void consultar() {
-    int numero;
-    printf("Número da conta: ");
-    scanf("%d", &numero);
-    for (int i = 0; i < totalContas; i++) {
-        if (contas[i].numeroConta == numero) {
-            printf("Nome: %sSaldo: %.2f | IBAN: %s\n", contas[i].nome, contas[i].saldo, contas[i].iban);
-            return;
-        }
-    }
-    printf("Conta não encontrada.\n");
-}
-
-// Função 5: Transferência
-void transferir() {
-    int origem, destino;
-    float valor;
-    printf("Conta origem: ");
-    scanf("%d", &origem);
-    printf("Conta destino: ");
-    scanf("%d", &destino);
-    printf("Valor: ");
-    scanf("%f", &valor);
-
-    Conta *c1 = NULL, *c2 = NULL;
-    for (int i = 0; i < totalContas; i++) {
-        if (contas[i].numeroConta == origem) c1 = &contas[i];
-        if (contas[i].numeroConta == destino) c2 = &contas[i];
-    }
-
-    if (c1 && c2 && c1->saldo >= valor) {
-        c1->saldo -= valor;
-        c2->saldo += valor;
-        printf("Transferência concluída.\n");
-    } else {
-        printf("Erro: Conta(s) inválida(s) ou saldo insuficiente.\n");
+/* ----------------- persistencia contatos ----------------- */
+void gerarContatosPadrao(void){
+    const char *nomes[N_CONTATOS] = {
+        "Carlos Silva","Ana Paula","Jose Mendes","Maria Luisa",
+        "Luis Antonio","Sara Daniel","Pedro Bento","Rita Jorge",
+        "Paulo Gomes","Clara Sousa"
+    };
+    srand((unsigned)time(NULL));
+    for(int i=0;i<N_CONTATOS;++i){
+        contatos[i].numero = 2000 + rand()%8000;
+        strcpy(contatos[i].nome, nomes[i]);
+        gerarIBAN(contatos[i].numero, contatos[i].iban);
     }
 }
-
-// Função 6: Pagamento de serviços
-void pagarServico() {
-    int numero;
-    float valor;
-    printf("Número da conta: ");
-    scanf("%d", &numero);
-    printf("Valor do serviço: ");
-    scanf("%f", &valor);
-    for (int i = 0; i < totalContas; i++) {
-        if (contas[i].numeroConta == numero) {
-            if (contas[i].saldo >= valor) {
-                contas[i].saldo -= valor;
-                printf("Pagamento realizado. Saldo atual: %.2f\n", contas[i].saldo);
-            } else {
-                printf("Saldo insuficiente.\n");
-            }
-            return;
-        }
-    }
-    printf("Conta não encontrada.\n");
+void salvarContatos(void){
+    FILE *fp = fopen(ARQ_CONTATOS, "wb");
+    if(!fp){ puts("Erro ao salvar contatos."); return; }
+    fwrite(contatos, sizeof(Contato), N_CONTATOS, fp);
+    fclose(fp);
+}
+void carregarContatos(void){
+    FILE *fp = fopen(ARQ_CONTATOS, "rb");
+    if(!fp){ gerarContatosPadrao(); salvarContatos(); return; }
+    fread(contatos, sizeof(Contato), N_CONTATOS, fp);
+    fclose(fp);
 }
 
-// Menu principal
-void menu() {
+/* ----------------- utilidades ----------------- */
+int buscarConta(int num){
+    for(int i=0;i<totalContas;++i)
+        if(contas[i].numero == num) return i;
+    return -1;
+}
+int nomeExiste(const char *nome){
+    for(int i=0;i<totalContas;++i)
+        if(strcmp(contas[i].nome, nome) == 0) return 1;
+    return 0;
+}
+
+/* ----------------- operacoes ----------------- */
+void criarConta(void){
+    if(totalContas >= MAX_CONTAS){ puts("Limite de contas."); return; }
+
+    char nome[50];
+    printf("Nome do titular: ");
+    scanf(" %49[^\n]", nome);
+    if(nomeExiste(nome)){ puts("Ja existe conta com esse nome."); return; }
+
+    Conta c;
+    c.numero = proximoNumero++;
+    strcpy(c.nome, nome);
+    gerarIBAN(c.numero, c.iban);
+    c.saldo = 0;
+    contas[totalContas++] = c;
+    salvarContas();
+
+    printf("Conta criada! Numero %d | IBAN %s\n", c.numero, c.iban);
+}
+void depositar(void){
+    int num; float v;
+    printf("Numero da conta: "); scanf("%d",&num);
+    int i = buscarConta(num); if(i<0){ puts("Conta nao encontrada."); return; }
+    printf("Valor do deposito: "); scanf("%f",&v);
+    if(v<=0){ puts("Valor invalido."); return; }
+    contas[i].saldo += v; salvarContas();
+    printf("Deposito ok! Saldo %.2f\n", contas[i].saldo);
+}
+void levantar(void){
+    int num; float v;
+    printf("Numero da conta: "); scanf("%d",&num);
+    int i = buscarConta(num); if(i<0){ puts("Conta nao encontrada."); return; }
+    printf("Valor do levantamento: "); scanf("%f",&v);
+    if(v<=0 || v>contas[i].saldo){ puts("Saldo insuficiente ou valor invalido."); return; }
+    contas[i].saldo -= v; salvarContas();
+    printf("Levantamento ok! Saldo %.2f\n", contas[i].saldo);
+}
+void consultar(void){
+    int num; printf("Numero da conta: "); scanf("%d",&num);
+    int i = buscarConta(num); if(i<0){ puts("Conta nao encontrada."); return; }
+    printf("Titular: %s\nNumero: %d\nIBAN: %s\nSaldo: %.2f\n",
+           contas[i].nome, contas[i].numero, contas[i].iban, contas[i].saldo);
+}
+void listarContatos(void){
+    puts("\n--- CONTATOS ---");
+    for(int k=0;k<N_CONTATOS;++k)
+        printf("%2d) %s | Numero %d | IBAN %s\n",
+               k+1, contatos[k].nome, contatos[k].numero, contatos[k].iban);
+}
+void transferir(void){
+    int orig,dest; float v;
+    printf("Conta origem: "); scanf("%d",&orig);
+    int i = buscarConta(orig); if(i<0){ puts("Conta origem nao encontrada."); return; }
+
+    printf("Conta destino: "); scanf("%d",&dest);
+    int j = buscarConta(dest);
+    int idxContato = -1;
+    if(j<0){
+        for(int k=0;k<N_CONTATOS;++k)
+            if(contatos[k].numero == dest){ idxContato=k; break; }
+        if(idxContato < 0){ puts("Destino nao existente."); return; }
+    }
+
+    printf("Valor da transferencia: "); scanf("%f",&v);
+    if(v<=0 || v>contas[i].saldo){ puts("Saldo insuficiente ou valor invalido."); return; }
+
+    contas[i].saldo -= v;
+    if(j>=0) contas[j].saldo += v;   /* interna */
+    salvarContas();
+
+    if(j>=0) puts("Transferencia interna concluida!");
+    else     printf("Transferencia para %s ok!\n", contatos[idxContato].nome);
+}
+
+/* ----------------- pagar servico ----------------- */
+void pagarServico(void){
+    int num; printf("Numero da conta: "); scanf("%d",&num);
+    int i = buscarConta(num); if(i<0){ puts("Conta nao encontrada."); return; }
+
+    puts("\n--- SERVICOS DISPONIVEIS ---");
+    for(int s=0;s<N_SERVICOS;++s){
+        printf("%2d) %s  ", s+1, SERV_NOME[s]);
+        if(SERV_PRECO_SEM[s]>0) printf("Sem: %d  ", SERV_PRECO_SEM[s]);
+        if(SERV_PRECO_MES[s]>0) printf("Mes: %d", SERV_PRECO_MES[s]);
+        puts("");
+    }
+
+    int sel; printf("Escolha servico (1-%d): ", N_SERVICOS); scanf("%d",&sel);
+    if(sel<1 || sel>N_SERVICOS){ puts("Servico invalido."); return; }
+    --sel;
+
+    int preco = -1;
+    if(SERV_PRECO_SEM[sel]>0 && SERV_PRECO_MES[sel]>0){
+        int op;
+        printf("Plano (1 Semanal / 2 Mensal): "); scanf("%d",&op);
+        preco = (op==1) ? SERV_PRECO_SEM[sel] : (op==2 ? SERV_PRECO_MES[sel] : -1);
+    }else if(SERV_PRECO_SEM[sel]>0){
+        puts("Plano semanal selecionado.");
+        preco = SERV_PRECO_SEM[sel];
+    }else{
+        puts("Plano mensal selecionado.");
+        preco = SERV_PRECO_MES[sel];
+    }
+
+    if(preco<0){ puts("Opcao invalida."); return; }
+    if(preco > contas[i].saldo){ puts("Saldo insuficiente."); return; }
+
+    contas[i].saldo -= preco; salvarContas();
+    printf("Pagamento '%s' ok. Valor %d  | Saldo %.2f\n",
+           SERV_NOME[sel], preco, contas[i].saldo);
+}
+
+/* ----------------- menu ----------------- */
+void menu(void){
     int op;
-    do {
-        printf("\n--- UMA Banking System ---\n");
-        printf("1. Abrir Conta\n2. Depositar\n3. Levantar\n4. Consultar\n5. Transferir\n6. Pagar Serviço\n0. Sair\nEscolha: ");
-        scanf("%d", &op);
-        switch (op) {
-            case 1: abrirConta(); break;
-            case 2: depositar(); break;
-            case 3: levantar(); break;
-            case 4: consultar(); break;
-            case 5: transferir(); break;
-            case 6: pagarServico(); break;
+    do{
+        puts("\n--- UMA BANKING SYSTEM ---");
+        puts("1 Criar Conta");
+        puts("2 Depositar");
+        puts("3 Levantar");
+        puts("4 Consultar Saldo + IBAN");
+        puts("5 Transferir");
+        puts("6 Pagar Servico");
+        puts("7 Ver Contatos");
+        puts("8 Sair");
+        printf("Escolha: ");
+        scanf("%d",&op);
+
+        switch(op){
+            case 1: criarConta();     break;
+            case 2: depositar();      break;
+            case 3: levantar();       break;
+            case 4: consultar();      break;
+            case 5: transferir();     break;
+            case 6: pagarServico();   break;
+            case 7: listarContatos(); break;
+            case 8: puts("Saindo..."); break;
+            default: puts("Opcao invalida.");
         }
-    } while (op != 0);
+    }while(op!=8);
 }
 
-int main() {
+/* ----------------- main ----------------- */
+int main(void){
+    carregarContas();
+    carregarContatos();
     menu();
     return 0;
 }
